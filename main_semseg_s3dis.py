@@ -23,6 +23,7 @@ from torch.utils.data import DataLoader
 from util import cal_loss, IOStream
 import sklearn.metrics as metrics
 from plyfile import PlyData, PlyElement
+from tqdm import tqdm
 
 global room_seg
 room_seg = []
@@ -144,9 +145,9 @@ def visualization(visu, visu_format, test_choice, data, seg, pred, visual_file_i
         
 def train(args, io):
     train_loader = DataLoader(S3DIS(partition='train', num_points=args.num_points, test_area=args.test_area), 
-                              num_workers=8, batch_size=args.batch_size, shuffle=True, drop_last=True)
+                              num_workers=args.num_workers, batch_size=args.batch_size, shuffle=True, drop_last=True)
     test_loader = DataLoader(S3DIS(partition='test', num_points=args.num_points, test_area=args.test_area), 
-                            num_workers=8, batch_size=args.test_batch_size, shuffle=True, drop_last=False)
+                            num_workers=args.num_workers_test, batch_size=args.test_batch_size, shuffle=True, drop_last=False)
 
     device = torch.device("cuda" if args.cuda else "cpu")
 
@@ -175,7 +176,7 @@ def train(args, io):
     criterion = cal_loss
 
     best_test_iou = 0
-    for epoch in range(args.epochs):
+    for epoch in tqdm(range(args.epochs), total=args.epochs, desc='Epoch', dynamic_ncols=True, ascii=True):
         ####################
         # Train
         ####################
@@ -270,6 +271,7 @@ def train(args, io):
         if np.mean(test_ious) >= best_test_iou:
             best_test_iou = np.mean(test_ious)
             torch.save(model.state_dict(), 'outputs/%s/models/model_%s.t7' % (args.exp_name, args.test_area))
+            io.cprint('Saved new best model!')
 
 
 def test(args, io):
@@ -404,6 +406,10 @@ if __name__ == "__main__":
                         help='visualize the model')
     parser.add_argument('--visu_format', type=str, default='ply',
                         help='file format of visualization')
+    parser.add_argument('--num_workers', type=int, default=8,
+                        help='number of workers for training')
+    parser.add_argument('--num_workers_test', type=int, default=8,
+                        help='number of workers for testing')
     args = parser.parse_args()
 
     _init_()
