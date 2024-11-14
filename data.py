@@ -52,6 +52,9 @@ def download_shapenetpart():
         os.system('rm %s' % (zipfile))
 
 
+# https://cvg-data.inf.ethz.ch/s3dis/
+# https://cvg-data.inf.ethz.ch/s3dis/Stanford3dDataset_v1.2.mat
+# https://cvg-data.inf.ethz.ch/s3dis/Stanford3dDataset_v1.2_Aligned_Version.zip
 def download_S3DIS():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     DATA_DIR = os.path.join(BASE_DIR, 'data')
