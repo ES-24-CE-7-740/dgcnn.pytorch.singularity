@@ -1,0 +1,29 @@
+Bootstrap: docker
+From: nvcr.io/nvidia/pytorch:22.12-py3
+
+%post
+    # Disable installation prompts
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Define gpu architectures to build for
+    export TORCH_CUDA_ARCH_LIST="7.5 8.6 8.9"
+
+    # Upgade pip
+    python -m pip install --upgrade pip
+
+    # Install dependencies
+    pip install h5py==3.11.0 scikit-learn==0.24.2 plyfile==1.0.3 opencv-python-headless==4.5.5.64
+
+    # Build torch-scatter from source
+    export CPATH=/usr/local/cuda/include
+    pip install torch-scatter==2.1.2
+
+    # Clean pip cache
+    pip cache purge
+
+%environment
+    export TORCH_CUDA_ARCH_LIST="7.5 8.6 8.9"
+
+%runscript
+    # Execute Python with the provided arguments when container is run
+    exec python "$@"
