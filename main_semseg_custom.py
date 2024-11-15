@@ -410,7 +410,7 @@ if __name__ == "__main__":
                         help='number of workers for training')
     parser.add_argument('--num_workers_test', type=int, default=8,
                         help='number of workers for testing')
-    parser.add_argument('--num_classes', type=int, default=3,
+    parser.add_argument('--num_classes', type=int, default=13,
                         help='number of classes in the dataset')
     args = parser.parse_args()
 
