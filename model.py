@@ -489,3 +489,116 @@ class DGCNN_semseg_scannet(nn.Module):
         x = x.transpose(2, 1).contiguous()
 
         return x, None
+
+
+class DGCNN_semseg_custom(nn.Module):
+    def __init__(self, args, n_features=9):#num_classes=3, k=20, emb_dims=1024, dropout=0.5):
+        super(DGCNN_semseg_custom, self).__init__()
+        
+        # Arg parsing
+        self.args = args
+        self.n_features = n_features
+        self.num_classes = args.num_classes
+        self.k = args.k
+        self.emb_dims = args.emb_dims
+        self.dropout = args.dropout
+        
+        # Dim flag for get_graph_feature
+        if self.n_features == 9: self.dim9_flag = True
+        else: self.dim9_flag = False
+        
+        # Layer definitions
+        self.bn1 = nn.BatchNorm2d(64)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.bn3 = nn.BatchNorm2d(64)
+        self.bn4 = nn.BatchNorm2d(64)
+        self.bn5 = nn.BatchNorm2d(64)
+        self.bn6 = nn.BatchNorm1d(self.emb_dims)
+        self.bn7 = nn.BatchNorm1d(512)
+        self.bn8 = nn.BatchNorm1d(256)
+        
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(self.n_features*2, 64, kernel_size=1, bias=False),  # (x, y, z) -> knn doubles the channels
+            self.bn1,
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(64, 64, kernel_size=1, bias=False),
+            self.bn2,
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(64 * 2, 64, kernel_size=1, bias=False),
+            self.bn3,
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        
+        self.conv4 = nn.Sequential(
+            nn.Conv2d(64, 64, kernel_size=1, bias=False),
+            self.bn4,
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        
+        self.conv5 = nn.Sequential(
+            nn.Conv2d(64 * 2, 64, kernel_size=1, bias=False),
+            self.bn5,
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        
+        self.conv6 = nn.Sequential(
+            nn.Conv1d(192, self.emb_dims, kernel_size=1, bias=False),
+            self.bn6,
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        
+        self.conv7 = nn.Sequential(
+            nn.Conv1d(1216, 512, kernel_size=1, bias=False),
+            self.bn7,
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        
+        self.conv8 = nn.Sequential(
+            nn.Conv1d(512, 256, kernel_size=1, bias=False),
+            self.bn8,
+            nn.LeakyReLU(negative_slope=0.2)
+        )
+        
+        self.dp1 = nn.Dropout(p=self.dropout)
+        
+        self.conv9 = nn.Conv1d(256, self.num_classes, kernel_size=1, bias=False)
+    
+    
+    def forward(self, x):
+        batch_size = x.size(0)
+        num_points = x.size(2)
+
+        x = get_graph_feature(x, k=self.k, dim9=self.dim9_flag)     # (batch_size, 3, num_points) -> (batch_size, 6, num_points, k)
+        x = self.conv1(x)                                           # -> (batch_size, 64, num_points, k)
+        x = self.conv2(x)                                           # -> (batch_size, 64, num_points, k)
+        x1 = x.max(dim=-1, keepdim=False)[0]                        # -> (batch_size, 64, num_points)
+
+        x = get_graph_feature(x1, k=self.k)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x2 = x.max(dim=-1, keepdim=False)[0]
+
+        x = get_graph_feature(x2, k=self.k)
+        x = self.conv5(x)
+        x3 = x.max(dim=-1, keepdim=False)[0]
+
+        x = torch.cat((x1, x2, x3), dim=1)
+
+        x = self.conv6(x)
+        x = x.max(dim=-1, keepdim=True)[0]
+
+        x = x.repeat(1, 1, num_points)
+        x = torch.cat((x, x1, x2, x3), dim=1)
+
+        x = self.conv7(x)
+        x = self.conv8(x)
+        x = self.dp1(x)
+        x = self.conv9(x)
+
+        return x
