@@ -195,7 +195,7 @@ def train(args, io):
             opt.zero_grad()
             seg_pred = model(data)
             seg_pred = seg_pred.permute(0, 2, 1).contiguous()
-            loss = criterion(seg_pred.view(-1, 13), seg.view(-1,1).squeeze())
+            loss = criterion(seg_pred.view(-1, args.num_classes), seg.view(-1,1).squeeze())
             loss.backward()
             opt.step()
             pred = seg_pred.max(dim=2)[1]               # (batch_size, num_points)
@@ -245,7 +245,7 @@ def train(args, io):
             batch_size = data.size()[0]
             seg_pred = model(data)
             seg_pred = seg_pred.permute(0, 2, 1).contiguous()
-            loss = criterion(seg_pred.view(-1, 13), seg.view(-1,1).squeeze())
+            loss = criterion(seg_pred.view(-1, args.num_classes), seg.view(-1,1).squeeze())
             pred = seg_pred.max(dim=2)[1]
             count += batch_size
             test_loss += loss.item() * batch_size
