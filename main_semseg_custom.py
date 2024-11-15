@@ -16,7 +16,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR, StepLR
-from data import S3DIS
+from data import S3DIS, TractorsAndCombines
 from model import DGCNN_semseg_custom
 import numpy as np
 from torch.utils.data import DataLoader
@@ -144,9 +144,9 @@ def visualization(visu, visu_format, test_choice, data, seg, pred, visual_file_i
             
         
 def train(args, io):
-    train_loader = DataLoader(S3DIS(partition='train', num_points=args.num_points, test_area=args.test_area), 
+    train_loader = DataLoader(TractorsAndCombines(partition='train', num_points=args.num_points, test_area=args.test_area), 
                               num_workers=args.num_workers, batch_size=args.batch_size, shuffle=True, drop_last=True)
-    test_loader = DataLoader(S3DIS(partition='test', num_points=args.num_points, test_area=args.test_area), 
+    test_loader = DataLoader(TractorsAndCombines(partition='test', num_points=args.num_points, test_area=args.test_area), 
                             num_workers=args.num_workers_test, batch_size=args.test_batch_size, shuffle=True, drop_last=False)
 
     device = torch.device("cuda" if args.cuda else "cpu")
@@ -289,7 +289,7 @@ def test(args, io):
                         break
                     visual_file_index = visual_file_index + 1
         if (args.test_area == 'all') or (test_area == args.test_area):
-            test_loader = DataLoader(S3DIS(partition='test', num_points=args.num_points, test_area=test_area),
+            test_loader = DataLoader(TractorsAndCombines(partition='test', num_points=args.num_points, test_area=test_area),
                                      batch_size=args.test_batch_size, shuffle=False, drop_last=False)
 
             device = torch.device("cuda" if args.cuda else "cpu")
