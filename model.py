@@ -492,12 +492,12 @@ class DGCNN_semseg_scannet(nn.Module):
 
 
 class DGCNN_semseg_custom(nn.Module):
-    def __init__(self, args, n_features=9):#num_classes=3, k=20, emb_dims=1024, dropout=0.5):
+    def __init__(self, args):#num_classes=3, k=20, emb_dims=1024, dropout=0.5):
         super(DGCNN_semseg_custom, self).__init__()
         
         # Arg parsing
         self.args = args
-        self.n_features = n_features
+        self.n_features = args.n_features
         self.num_classes = args.num_classes
         self.k = args.k
         self.emb_dims = args.emb_dims
@@ -574,7 +574,7 @@ class DGCNN_semseg_custom(nn.Module):
         batch_size = x.size(0)
         num_points = x.size(2)
 
-        x = get_graph_feature(x, k=self.k, dim9=self.dim9_flag)     # (batch_size, 3, num_points) -> (batch_size, 6, num_points, k)
+        x = get_graph_feature(x, k=self.k, dim9=self.dim9_flag)     # (batch_size, features, num_points) -> (batch_size, features, num_points, k)
         x = self.conv1(x)                                           # -> (batch_size, 64, num_points, k)
         x = self.conv2(x)                                           # -> (batch_size, 64, num_points, k)
         x1 = x.max(dim=-1, keepdim=False)[0]                        # -> (batch_size, 64, num_points)

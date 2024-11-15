@@ -359,6 +359,29 @@ class S3DIS(Dataset):
         return self.data.shape[0]
 
 
+class TractorsAndCombines(Dataset):
+    def __init__(self, num_points=4096, partition='train', test_area='1'):
+        self.data, self.seg = load_data_semseg(partition, test_area)
+        self.num_points = num_points
+        self.partition = partition    
+        self.semseg_colors = load_color_semseg()
+
+    def __getitem__(self, item):
+        pointcloud = self.data[item][:self.num_points]
+        seg = self.seg[item][:self.num_points]
+        if self.partition == 'train':
+            indices = list(range(pointcloud.shape[0]))
+            np.random.shuffle(indices)
+            pointcloud = pointcloud[indices]
+            seg = seg[indices]
+        seg = torch.LongTensor(seg)
+        pointcloud = pointcloud[:, :3]
+        return pointcloud, seg
+
+    def __len__(self):
+        return self.data.shape[0]
+
+
 class ScanNet(Dataset):
     def __init__(self, num_point=8192, partition='train', 
                  data_root='scannet', classes=20, block_size=1.5,

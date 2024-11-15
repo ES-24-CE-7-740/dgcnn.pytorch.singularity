@@ -412,6 +412,8 @@ if __name__ == "__main__":
                         help='number of workers for testing')
     parser.add_argument('--num_classes', type=int, default=13,
                         help='number of classes in the dataset')
+    parser.add_argument('--n_features', type=int, default=9,
+                        help='number of features for each point')
     args = parser.parse_args()
 
     _init_()
