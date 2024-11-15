@@ -359,27 +359,48 @@ class S3DIS(Dataset):
         return self.data.shape[0]
 
 
+# Specs:
+#   pointcloud.shape == (num_points, 3)
+#   seg.shape == (num_points,)
 class TractorsAndCombines(Dataset):
-    def __init__(self, num_points=4096, partition='train', test_area='1'):
-        self.data, self.seg = load_data_semseg(partition, test_area)
+    def __init__(self, root, num_points=4096, split='train'):
         self.num_points = num_points
-        self.partition = partition    
-        self.semseg_colors = load_color_semseg()
-
-    def __getitem__(self, item):
-        pointcloud = self.data[item][:self.num_points]
-        seg = self.seg[item][:self.num_points]
-        if self.partition == 'train':
-            indices = list(range(pointcloud.shape[0]))
-            np.random.shuffle(indices)
-            pointcloud = pointcloud[indices]
-            seg = seg[indices]
-        seg = torch.LongTensor(seg)
-        pointcloud = pointcloud[:, :3]
+        self.root = root
+        self.split = split
+        self.sem_classes = {'Ground': [0], 'Tractor': [1], 'Combine Harvester': [2]}
+        
+        if split == 'train':
+            self.pointcloud_files = [os.path.join(root, 'dataset/sequences/00/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/00/points'))]
+            self.label_files = [os.path.join(root, 'dataset/sequences/00/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/00/labels'))]
+        elif split == 'validate':
+            self.pointcloud_files = [os.path.join(root, 'dataset/sequences/01/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/01/points'))]
+            self.label_files = [os.path.join(root, 'dataset/sequences/01/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/01/labels'))]
+        elif split == 'test':
+            self.pointcloud_files = [os.path.join(root, 'dataset/sequences/02/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/02/points'))]
+            self.label_files = [os.path.join(root, 'dataset/sequences/02/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/02/labels'))]
+        else:
+            print(f'Invalid split: {self.split}')
+            sys.exit(1)
+        
+        # Sort files
+        self.pointcloud_files.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
+        self.label_files.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
+    
+    
+    def __getitem__(self, index):
+        pointcloud = np.load(self.pointcloud_files[index])
+        seg = np.load(self.label_files[index])
+        
+        # Randomly sample the pointcloud with num_points
+        choice = np.random.choice(pointcloud.shape[0], self.num_points, replace=True)
+        pointcloud = pointcloud[choice, :]
+        seg = seg[choice]
+        
         return pointcloud, seg
-
+    
     def __len__(self):
-        return self.data.shape[0]
+        return len(self.pointcloud_files)
+
 
 
 class ScanNet(Dataset):
