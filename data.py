@@ -359,6 +359,62 @@ class S3DIS(Dataset):
         return self.data.shape[0]
 
 
+def normalize_pc(points):
+    centroid = np.mean(points, axis=0)
+    points -= centroid
+    furthest_distance = np.max(np.sqrt(np.sum(abs(points)**2,axis=-1)))
+    points /= furthest_distance
+
+    return points
+
+def process_tractors_and_combines(root):
+    # Load data
+    train_data = [os.path.join(root, 'dataset/sequences/00/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/00/points'))]
+    train_labels = [os.path.join(root, 'dataset/sequences/00/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/00/labels'))]
+    
+    validate_data = [os.path.join(root, 'dataset/sequences/01/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/01/points'))]
+    validate_labels = [os.path.join(root, 'dataset/sequences/01/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/01/labels'))]
+    
+    test_data = [os.path.join(root, 'dataset/sequences/02/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/02/points'))]
+    test_labels = [os.path.join(root, 'dataset/sequences/02/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/02/labels'))]
+    
+    splits_str = ['train', 'validate', 'test']
+    splits_data = [train_data, validate_data, test_data]
+    
+    
+    
+    # Process data
+    # - Add normalized rgb values to the pointcloud (0.5, 0.5, 0.5)
+    # - Add normalized xyz values to the pointcloud (Normalized to the unit sphere -> [-1, 1])
+    for split_name, split_data in zip(splits_str,splits_data):
+        
+        # Pathing of processed data
+        save_dir = os.path.join(root, 'processed_dgcnn', f'{split_name}')
+        
+        try: os.makedirs(save_dir, exist_ok=False)
+        except OSError as e: print(f'{e}: Please remove the existing directory!'); exit(1)
+        
+        # Process each pointcloud
+        for filename in split_data:
+            pointcloud = np.load(filename)
+            pointcloud = pointcloud[:, :3]
+            
+            # TODO: Sample the pointcloud to num_points (default: 4096)
+                        
+            # Create normalized rgb channels
+            normalized_rgb = np.full_like(pointcloud, 0.5, dtype=np.float32)
+            
+            # Create normalized xyz channels
+            normalized_pc = normalize_pc(pointcloud)
+            
+            # Concatenate the normalized rgb and xyz channels
+            pointcloud_processed = np.concatenate((pointcloud, normalized_rgb, normalized_pc), axis=1)
+            
+            # Save the processed pointcloud
+            np.save(os.path.join(save_dir, os.path.basename(filename)), pointcloud_processed)
+    
+
+
 # Specs:
 #   pointcloud.shape == (num_points, 3)
 #   seg.shape == (num_points,)
