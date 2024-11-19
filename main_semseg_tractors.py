@@ -39,10 +39,14 @@ def _init_():
         os.makedirs('outputs/'+args.exp_name)
     if not os.path.exists('outputs/'+args.exp_name+'/'+'models'):
         os.makedirs('outputs/'+args.exp_name+'/'+'models')
-    os.system('cp main_semseg_s3dis.py outputs'+'/'+args.exp_name+'/'+'main_semseg_s3dis.py.backup')
-    os.system('cp model.py outputs' + '/' + args.exp_name + '/' + 'model.py.backup')
-    os.system('cp util.py outputs' + '/' + args.exp_name + '/' + 'util.py.backup')
-    os.system('cp data.py outputs' + '/' + args.exp_name + '/' + 'data.py.backup')
+    if not os.path.exists('outputs/'+args.exp_name+'/'+'backup'):
+        os.makedirs('outputs/'+args.exp_name+'/'+'backup')
+    
+    backup_path = os.path.join('outputs', args.exp_name, 'backup')
+    os.system(f'cp main_semseg_tractors.py {os.path.join(backup_path, 'main_semseg_tractors.py.backup')}')
+    os.system(f'cp model.py {os.path.join(backup_path, 'model.py.backup')}')
+    os.system(f'cp util.py {os.path.join(backup_path, 'util.py.backup')}')
+    os.system(f'cp data.py {os.path.join(backup_path, 'data.py.backup')}')
 
 
 def calculate_sem_IoU(pred_np, seg_np, visual=False):
@@ -144,10 +148,11 @@ def visualization(visu, visu_format, test_choice, data, seg, pred, visual_file_i
             
         
 def train(args, io):
-    train_loader = DataLoader(S3DIS(partition='train', num_points=args.num_points, test_area=args.test_area), 
-                              num_workers=args.num_workers, batch_size=args.batch_size, shuffle=True, drop_last=True)
-    test_loader = DataLoader(S3DIS(partition='test', num_points=args.num_points, test_area=args.test_area), 
-                            num_workers=args.num_workers_test, batch_size=args.test_batch_size, shuffle=True, drop_last=False)
+    train_dataset = TractorsAndCombines(root=args.data_root, split='train')
+    train_loader = DataLoader(dataset=train_dataset, num_workers=args.num_workers, batch_size=args.batch_size, shuffle=True, drop_last=True)
+    
+    test_dataset = TractorsAndCombines(root=args.data_root, split='validate')
+    test_loader = DataLoader(dataset=test_dataset, num_workers=args.num_workers_test, batch_size=args.batch_size_test, shuffle=False, drop_last=False)
 
     device = torch.device("cuda" if args.cuda else "cpu")
 
@@ -155,7 +160,7 @@ def train(args, io):
     if args.model == 'dgcnn':
         model = DGCNN_semseg_custom(args).to(device)
     else:
-        raise Exception("Not implemented")
+        raise Exception("Model not implemented")
     print(str(model))
 
     model = nn.DataParallel(model)
@@ -274,6 +279,7 @@ def train(args, io):
             io.cprint('Saved new best model!')
 
 
+# TODO: FIXME: THIS IS A MESS, DOES NOT WORK WITH TractionsAndCombines DATASET CLASS
 def test(args, io):
     all_true_cls = []
     all_pred_cls = []
@@ -373,7 +379,7 @@ if __name__ == "__main__":
                         choices=['1', '2', '3', '4', '5', '6', 'all'])
     parser.add_argument('--batch_size', type=int, default=32, metavar='batch_size',
                         help='Size of batch)')
-    parser.add_argument('--test_batch_size', type=int, default=16, metavar='batch_size',
+    parser.add_argument('--batch_size_test', type=int, default=16, metavar='batch_size',
                         help='Size of batch)')
     parser.add_argument('--epochs', type=int, default=100, metavar='N',
                         help='number of episode to train ')
@@ -414,6 +420,8 @@ if __name__ == "__main__":
                         help='number of classes in the dataset')
     parser.add_argument('--n_features', type=int, default=9,
                         help='number of features for each point')
+    parser.add_argument('--data_root', type=str, default='data/tractors_and_combines_synth',
+                        help='root directory of the dataset')
     args = parser.parse_args()
 
     _init_()
