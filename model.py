@@ -492,8 +492,15 @@ class DGCNN_semseg_scannet(nn.Module):
 
 
 class DGCNN_semseg_custom(nn.Module):
-    def __init__(self, args):#num_classes=3, k=20, emb_dims=1024, dropout=0.5):
+    def __init__(self, args):
         super(DGCNN_semseg_custom, self).__init__()
+        
+        # Args used
+        # - args.n_features     -> Default = 9
+        # - args.num_classes    -> Default = 13
+        # - args.k              -> Default = 20
+        # - args.emb_dims       -> Default = 1024
+        # - args.dropout        -> Default = 0.5
         
         # Arg parsing
         self.args = args

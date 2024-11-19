@@ -46,7 +46,7 @@ def process_tractors_and_combines(root, num_points):
             os.makedirs(save_dir, exist_ok=True)
             os.makedirs(points_dir, exist_ok=False)
             os.makedirs(labels_dir, exist_ok=False)
-        except OSError as e: print(f'{e}: Please remove the existing directories at "{save_dir}"!'); exit(1)
+        except OSError as e: print(e); exit(1)
         
         # Process each pointcloud
         for data_fn, label_fn in tqdm(zip(split_data, split_label), total=len(split_data), desc=f'Processing {split_name} data'):
