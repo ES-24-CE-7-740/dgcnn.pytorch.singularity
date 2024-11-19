@@ -359,59 +359,6 @@ class S3DIS(Dataset):
         return self.data.shape[0]
 
 
-def normalize_pc(points):
-    centroid = np.mean(points, axis=0)
-    points -= centroid
-    furthest_distance = np.max(np.sqrt(np.sum(abs(points)**2,axis=-1)))
-    points /= furthest_distance
-
-    return points
-
-def process_tractors_and_combines(root):
-    # Load data
-    train_data = [os.path.join(root, 'dataset/sequences/00/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/00/points'))]
-    train_labels = [os.path.join(root, 'dataset/sequences/00/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/00/labels'))]
-    
-    validate_data = [os.path.join(root, 'dataset/sequences/01/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/01/points'))]
-    validate_labels = [os.path.join(root, 'dataset/sequences/01/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/01/labels'))]
-    
-    test_data = [os.path.join(root, 'dataset/sequences/02/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/02/points'))]
-    test_labels = [os.path.join(root, 'dataset/sequences/02/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/02/labels'))]
-    
-    splits_str = ['train', 'validate', 'test']
-    splits_data = [train_data, validate_data, test_data]
-    
-    
-    
-    # Process data
-    # - Add normalized rgb values to the pointcloud (0.5, 0.5, 0.5)
-    # - Add normalized xyz values to the pointcloud (Normalized to the unit sphere -> [-1, 1])
-    for split_name, split_data in zip(splits_str,splits_data):
-        
-        # Pathing of processed data
-        save_dir = os.path.join(root, 'processed_dgcnn', f'{split_name}')
-        
-        try: os.makedirs(save_dir, exist_ok=False)
-        except OSError as e: print(f'{e}: Please remove the existing directory!'); exit(1)
-        
-        # Process each pointcloud
-        for filename in split_data:
-            pointcloud = np.load(filename)
-            pointcloud = pointcloud[:, :3]
-            
-            # TODO: Sample the pointcloud to num_points (default: 4096)
-                        
-            # Create normalized rgb channels
-            normalized_rgb = np.full_like(pointcloud, 0.5, dtype=np.float32)
-            
-            # Create normalized xyz channels
-            normalized_pc = normalize_pc(pointcloud)
-            
-            # Concatenate the normalized rgb and xyz channels
-            pointcloud_processed = np.concatenate((pointcloud, normalized_rgb, normalized_pc), axis=1)
-            
-            # Save the processed pointcloud
-            np.save(os.path.join(save_dir, os.path.basename(filename)), pointcloud_processed)
     
 
 
@@ -419,38 +366,55 @@ def process_tractors_and_combines(root):
 #   pointcloud.shape == (num_points, 3)
 #   seg.shape == (num_points,)
 class TractorsAndCombines(Dataset):
-    def __init__(self, root, num_points=4096, split='train'):
-        self.num_points = num_points
+    def __init__(self, root, split='train'):
         self.root = root
         self.split = split
         self.sem_classes = {'Ground': [0], 'Tractor': [1], 'Combine Harvester': [2]}
+        self.processed_dir = os.path.join(root, 'processed_dgcnn')
         
-        if split == 'train':
-            self.pointcloud_files = [os.path.join(root, 'dataset/sequences/00/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/00/points'))]
-            self.label_files = [os.path.join(root, 'dataset/sequences/00/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/00/labels'))]
-        elif split == 'validate':
-            self.pointcloud_files = [os.path.join(root, 'dataset/sequences/01/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/01/points'))]
-            self.label_files = [os.path.join(root, 'dataset/sequences/01/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/01/labels'))]
-        elif split == 'test':
-            self.pointcloud_files = [os.path.join(root, 'dataset/sequences/02/points', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/02/points'))]
-            self.label_files = [os.path.join(root, 'dataset/sequences/02/labels', f) for f in os.listdir(os.path.join(root, 'dataset/sequences/02/labels'))]
+        if os.path.exists(self.processed_dir):
+            print('Processed data found!')
         else:
-            print(f'Invalid split: {self.split}')
+            raise RuntimeError('Processed data not found! Please run "prepare_tractors.py" first!')
+        
+        # Get the pointcloud and label file paths and sort them
+        if split == 'train' or split == 'validate' or split == 'test':
+            self.pointcloud_files = sorted([os.path.join(self.processed_dir, split, 'points', f) 
+                                            for f in os.listdir(os.path.join(self.processed_dir, split, 'points'))])
+            self.label_files = sorted([os.path.join(self.processed_dir, split, 'labels', f)
+                                       for f in os.listdir(os.path.join(self.processed_dir, split, 'labels'))])
+        else:
+            print(f'Invalid split: "{self.split}"! Please use "train", "validate", or "test"!')
             sys.exit(1)
         
-        # Sort files
-        self.pointcloud_files.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
-        self.label_files.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
+    # Set some class properties
+    @property
+    def classes(self):
+        return self.sem_classes
+    
+    @property
+    def num_classes(self):
+        return len(self.sem_classes)
+    
+    @property
+    def num_points(self):
+        return np.load(self.pointcloud_files[0]).shape[0]
+    
+    @property
+    def num_features(self):
+        return np.load(self.pointcloud_files[0]).shape[1]
     
     
     def __getitem__(self, index):
-        pointcloud = np.load(self.pointcloud_files[index])
-        seg = np.load(self.label_files[index])
+        # Load the pointcloud and convert to tensor
+        pointcloud: np.ndarray = np.load(self.pointcloud_files[index])
+        pointcloud = torch.Tensor(pointcloud)
         
-        # Randomly sample the pointcloud with num_points
-        choice = np.random.choice(pointcloud.shape[0], self.num_points, replace=True)
-        pointcloud = pointcloud[choice, :]
-        seg = seg[choice]
+        # Load the label, convert to tensor and ensure shape is correct
+        seg: np.ndarray = np.load(self.label_files[index])
+        seg.round(out=seg)
+        seg = torch.LongTensor(seg) # LongTensor is a tensor with int dtype
+        seg = torch.squeeze(input=seg) # Ensure shape is [num_points] instead of [num_points, 1]
         
         return pointcloud, seg
     
