@@ -43,10 +43,11 @@ def _init_():
         os.makedirs('outputs/'+args.exp_name+'/'+'backup')
     
     backup_path = os.path.join('outputs', args.exp_name, 'backup')
-    os.system(f'cp main_semseg_tractors.py {os.path.join(backup_path, 'main_semseg_tractors.py.backup')}')
-    os.system(f'cp model.py {os.path.join(backup_path, 'model.py.backup')}')
-    os.system(f'cp util.py {os.path.join(backup_path, 'util.py.backup')}')
-    os.system(f'cp data.py {os.path.join(backup_path, 'data.py.backup')}')
+    os.system(f"cp main_semseg_tractors.py {os.path.join(backup_path, 'main_semseg_tractors.py.backup')}")
+    os.system(f"cp model.py {os.path.join(backup_path, 'model.py.backup')}")
+    os.system(f"cp util.py {os.path.join(backup_path, 'util.py.backup')}")
+    os.system(f"cp data.py {os.path.join(backup_path, 'data.py.backup')}")
+
 
 
 def calculate_sem_IoU(pred_np, seg_np, visual=False):
@@ -169,9 +170,12 @@ def train(args, io):
     if args.use_sgd:
         print("Use SGD")
         opt = optim.SGD(model.parameters(), lr=args.lr*100, momentum=args.momentum, weight_decay=1e-4)
-    else:
+    elif args.use_adam:
         print("Use Adam")
         opt = optim.Adam(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    else:
+        print("Defaulting to use SGD")
+        opt = optim.SGD(model.parameters(), lr=args.lr*100, momentum=args.momentum, weight_decay=1e-4)
 
     if args.scheduler == 'cos':
         scheduler = CosineAnnealingLR(opt, args.epochs, eta_min=1e-3)
@@ -295,7 +299,7 @@ def test(args, io):
                         break
                     visual_file_index = visual_file_index + 1
         if (args.test_area == 'all') or (test_area == args.test_area):
-            test_loader = DataLoader(TractorsAndCombines(partition='test', num_points=args.num_points, test_area=test_area),
+            test_loader = DataLoader(TractorsAndCombines(partition='test', num_points=args.num_points, test_area=test_area), #args.num_points is depreciated in TractorsAndCombines
                                      batch_size=args.test_batch_size, shuffle=False, drop_last=False)
 
             device = torch.device("cuda" if args.cuda else "cpu")
@@ -373,8 +377,8 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, default='dgcnn', metavar='N',
                         choices=['dgcnn'],
                         help='Model to use, [dgcnn]')
-    parser.add_argument('--dataset', type=str, default='S3DIS', metavar='N',
-                        choices=['S3DIS'])
+    # parser.add_argument('--dataset', type=str, default='S3DIS', metavar='N',
+    #                     choices=['S3DIS'])
     parser.add_argument('--test_area', type=str, default=None, metavar='N',
                         choices=['1', '2', '3', '4', '5', '6', 'all'])
     parser.add_argument('--batch_size', type=int, default=32, metavar='batch_size',
@@ -383,8 +387,10 @@ if __name__ == "__main__":
                         help='Size of batch)')
     parser.add_argument('--epochs', type=int, default=100, metavar='N',
                         help='number of episode to train ')
-    parser.add_argument('--use_sgd', type=bool, default=True,
-                        help='Use SGD')
+    parser.add_argument('--use_sgd', action="store_true",
+                        help='Use SGD optimizer')
+    parser.add_argument('--use_adam', action="store_true",
+                        help='Use Adam optimizer')
     parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                         help='learning rate (default: 0.001, 0.1 if using sgd)')
     parser.add_argument('--momentum', type=float, default=0.9, metavar='M',
