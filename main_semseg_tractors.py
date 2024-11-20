@@ -50,11 +50,11 @@ def _init_():
 
 
 
-def calculate_sem_IoU(pred_np, seg_np, visual=False):
-    I_all = np.zeros(13)
-    U_all = np.zeros(13)
+def calculate_sem_IoU(pred_np, seg_np, visual=False, num_classes=13):
+    I_all = np.zeros(num_classes)
+    U_all = np.zeros(num_classes)
     for sem_idx in range(seg_np.shape[0]):
-        for sem in range(13):
+        for sem in range(num_classes):
             I = np.sum(np.logical_and(pred_np[sem_idx] == sem, seg_np[sem_idx] == sem))
             U = np.sum(np.logical_or(pred_np[sem_idx] == sem, seg_np[sem_idx] == sem))
             I_all[sem] += I
@@ -62,7 +62,7 @@ def calculate_sem_IoU(pred_np, seg_np, visual=False):
     return I_all / U_all 
 
 
-def visualization(visu, visu_format, test_choice, data, seg, pred, visual_file_index, semseg_colors):
+def visualization(visu, visu_format, test_choice, data, seg, pred, visual_file_index, semseg_colors, num_classes):
     global room_seg, room_pred
     global visual_warning
     visu = visu.split('_')
@@ -117,7 +117,7 @@ def visualization(visu, visu_format, test_choice, data, seg, pred, visual_file_i
             np.savetxt(f_gt, xyzRGB_gt, fmt='%s', delimiter=' ') 
             
             if roomname != roomname_next:
-                mIoU = np.nanmean(calculate_sem_IoU(np.array(room_pred), np.array(room_seg)))
+                mIoU = np.nanmean(calculate_sem_IoU(np.array(room_pred), np.array(room_seg),num_classes=num_classes))
                 mIoU = str(round(mIoU, 4))
                 room_pred = []
                 room_seg = []
@@ -230,7 +230,7 @@ def train(args, io):
         avg_per_class_acc = metrics.balanced_accuracy_score(train_true_cls, train_pred_cls)
         train_true_seg = np.concatenate(train_true_seg, axis=0)
         train_pred_seg = np.concatenate(train_pred_seg, axis=0)
-        train_ious = calculate_sem_IoU(train_pred_seg, train_true_seg)
+        train_ious = calculate_sem_IoU(train_pred_seg, train_true_seg, num_classes=args.num_classes)
         outstr = 'Train %d, loss: %.6f, train acc: %.6f, train avg acc: %.6f, train iou: %.6f' % (epoch, 
                                                                                                   train_loss*1.0/count,
                                                                                                   train_acc,
@@ -270,7 +270,7 @@ def train(args, io):
         avg_per_class_acc = metrics.balanced_accuracy_score(test_true_cls, test_pred_cls)
         test_true_seg = np.concatenate(test_true_seg, axis=0)
         test_pred_seg = np.concatenate(test_pred_seg, axis=0)
-        test_ious = calculate_sem_IoU(test_pred_seg, test_true_seg)
+        test_ious = calculate_sem_IoU(test_pred_seg, test_true_seg, num_classes=args.num_classes)
         outstr = 'Test %d, loss: %.6f, test acc: %.6f, test avg acc: %.6f, test iou: %.6f' % (epoch,
                                                                                               test_loss*1.0/count,
                                                                                               test_acc,
@@ -334,7 +334,7 @@ def test(args, io):
                 test_true_seg.append(seg_np)
                 test_pred_seg.append(pred_np)
                 # visiualization
-                visualization(args.visu, args.visu_format, args.test_area, data, seg, pred, visual_file_index, semseg_colors) 
+                visualization(args.visu, args.visu_format, args.test_area, data, seg, pred, visual_file_index, semseg_colors, args.num_classes) 
                 visual_file_index = visual_file_index + data.shape[0]
             if visual_warning and args.visu != '':
                 print('Visualization Failed: You can only choose a room to visualize within the scope of the test area')
@@ -344,7 +344,7 @@ def test(args, io):
             avg_per_class_acc = metrics.balanced_accuracy_score(test_true_cls, test_pred_cls)
             test_true_seg = np.concatenate(test_true_seg, axis=0)
             test_pred_seg = np.concatenate(test_pred_seg, axis=0)
-            test_ious = calculate_sem_IoU(test_pred_seg, test_true_seg)
+            test_ious = calculate_sem_IoU(test_pred_seg, test_true_seg, num_classes=args.num_classes)
             outstr = 'Test :: test area: %s, test acc: %.6f, test avg acc: %.6f, test iou: %.6f' % (test_area,
                                                                                                     test_acc,
                                                                                                     avg_per_class_acc,
@@ -362,7 +362,7 @@ def test(args, io):
         avg_per_class_acc = metrics.balanced_accuracy_score(all_true_cls, all_pred_cls)
         all_true_seg = np.concatenate(all_true_seg, axis=0)
         all_pred_seg = np.concatenate(all_pred_seg, axis=0)
-        all_ious = calculate_sem_IoU(all_pred_seg, all_true_seg)
+        all_ious = calculate_sem_IoU(all_pred_seg, all_true_seg, num_classes=args.num_classes)
         outstr = 'Overall Test :: test acc: %.6f, test avg acc: %.6f, test iou: %.6f' % (all_acc,
                                                                                          avg_per_class_acc,
                                                                                          np.mean(all_ious))
