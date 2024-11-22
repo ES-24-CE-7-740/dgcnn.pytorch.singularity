@@ -149,7 +149,7 @@ def visualization(visu, visu_format, test_choice, data, seg, pred, visual_file_i
             
         
 def train(args, io):
-    train_dataset = TractorsAndCombines(root=args.data_root, split='train')
+    train_dataset = TractorsAndCombines(root=args.data_root, split='train', augment=args.data_augmentation)
     train_loader = DataLoader(dataset=train_dataset, num_workers=args.num_workers, batch_size=args.batch_size, shuffle=True, drop_last=True)
     
     test_dataset = TractorsAndCombines(root=args.data_root, split='validate')
@@ -428,6 +428,8 @@ if __name__ == "__main__":
                         help='number of features for each point')
     parser.add_argument('--data_root', type=str, default='data/tractors_and_combines_synth',
                         help='root directory of the dataset')
+    parser.add_argument('--data_augmentation', action="store_true",
+                        help='use data augmentation for the training set')
     args = parser.parse_args()
 
     _init_()

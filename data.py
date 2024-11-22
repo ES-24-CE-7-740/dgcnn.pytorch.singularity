@@ -418,8 +418,7 @@ class TractorsAndCombines(Dataset):
             pointcloud, seg = self.augment_pointcloud(pointcloud, seg)
         
         pointcloud = torch.tensor(pointcloud, dtype=torch.float32)
-        #seg = torch.LongTensor(seg) # LongTensor is a tensor with int64 dtype
-        seg = torch.tensor(seg, dtype=torch.int8)
+        seg = torch.tensor(seg, dtype=torch.int64)
         seg = torch.squeeze(input=seg) # Ensure shape is [num_points] instead of [num_points, 1]
         
         return pointcloud, seg
