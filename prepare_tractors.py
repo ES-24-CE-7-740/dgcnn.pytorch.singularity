@@ -84,6 +84,13 @@ def process_tractors_and_combines(root, num_points):
             # Concatenate the normalized rgb and xyz channels
             pointcloud_processed = np.concatenate((pointcloud, normalized_rgb, normalized_pc), axis=1)
             
+            # Convert the pointcloud to float16
+            pointcloud_processed = pointcloud_processed.astype(np.float16)
+            
+            # Convert the label to int8
+            label = label.round().astype(np.int8)
+            
+            
             # Save the processed pointcloud and label
             np.save(os.path.join(save_dir, 'points', os.path.basename(data_fn)), pointcloud_processed)
             np.save(os.path.join(save_dir, 'labels', os.path.basename(label_fn)), label)

@@ -408,12 +408,13 @@ class TractorsAndCombines(Dataset):
     def __getitem__(self, index):
         # Load the pointcloud and convert to tensor
         pointcloud: np.ndarray = np.load(self.pointcloud_files[index])
-        pointcloud = torch.Tensor(pointcloud)
+        pointcloud = torch.tensor(pointcloud, dtype=torch.float16)
         
         # Load the label, convert to tensor and ensure shape is correct
         seg: np.ndarray = np.load(self.label_files[index])
         seg.round(out=seg)
-        seg = torch.LongTensor(seg) # LongTensor is a tensor with int dtype
+        #seg = torch.LongTensor(seg) # LongTensor is a tensor with int64 dtype
+        seg = torch.tensor(seg, dtype=torch.int8)
         seg = torch.squeeze(input=seg) # Ensure shape is [num_points] instead of [num_points, 1]
         
         return pointcloud, seg
