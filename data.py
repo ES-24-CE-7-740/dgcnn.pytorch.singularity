@@ -366,9 +366,10 @@ class S3DIS(Dataset):
 #   pointcloud.shape == (num_points, 3)
 #   seg.shape == (num_points,)
 class TractorsAndCombines(Dataset):
-    def __init__(self, root, split='train'):
+    def __init__(self, root, split='train', augment=False):
         self.root = root
         self.split = split
+        self.augment = augment # Enable/disable data augmentation
         self.sem_classes = {'Ground': [0], 'Tractor': [1], 'Combine Harvester': [2]}
         self.processed_dir = os.path.join(root, 'processed_dgcnn')
         
@@ -406,13 +407,17 @@ class TractorsAndCombines(Dataset):
     
     
     def __getitem__(self, index):
-        # Load the pointcloud and convert to tensor
-        pointcloud: np.ndarray = np.load(self.pointcloud_files[index])
-        pointcloud = torch.tensor(pointcloud, dtype=torch.float16)
+        # Load the pointcloud
+        pointcloud: np.ndarray = np.load(self.pointcloud_files[index]).astype(np.float32) # Should be saved as np.float16
         
-        # Load the label, convert to tensor and ensure shape is correct
-        seg: np.ndarray = np.load(self.label_files[index])
-        seg.round(out=seg)
+        # Load the label
+        seg: np.ndarray = np.load(self.label_files[index]) # Should be saved as np.int8
+        
+        # Apply data augmentation for the 'train' split only
+        if self.augment and self.split == 'train':
+            pointcloud, seg = self.augment_pointcloud(pointcloud, seg)
+        
+        pointcloud = torch.tensor(pointcloud, dtype=torch.float32)
         #seg = torch.LongTensor(seg) # LongTensor is a tensor with int64 dtype
         seg = torch.tensor(seg, dtype=torch.int8)
         seg = torch.squeeze(input=seg) # Ensure shape is [num_points] instead of [num_points, 1]
@@ -421,6 +426,31 @@ class TractorsAndCombines(Dataset):
     
     def __len__(self):
         return len(self.pointcloud_files)
+    
+    def augment_pointcloud(self, pointcloud, seg):
+        """Apply augmentations to the point cloud and corresponding labels."""
+        # Random rotation around z-axis
+        theta = np.random.uniform(0, 2 * np.pi)
+        rotation_matrix = np.array([
+            [np.cos(theta), -np.sin(theta), 0],
+            [np.sin(theta), np.cos(theta), 0],
+            [0, 0, 1]
+        ])
+        pointcloud[:, :3] = pointcloud[:, :3] @ rotation_matrix.T
+
+        # Add Gaussian noise
+        noise = np.random.normal(0, 0.01, size=pointcloud.shape)
+        pointcloud += noise
+
+        # Random scaling
+        scale = np.random.uniform(0.8, 1.2)
+        pointcloud[:, :3] *= scale
+
+        # Random translation
+        translation = np.random.uniform(-0.1, 0.1, size=(1, 3))
+        pointcloud[:, :3] += translation
+
+        return pointcloud, seg
 
 
 
